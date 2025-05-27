@@ -1,7 +1,7 @@
 - 👋 Hi, I’m @OIZHENHAU
 - 👀 I’m interested in learning maths.
 - 🌱 I’m currently learning computer science course
-- 💞️ I’m looking to collaborate on my course.
+-  I’m looking to collaborate on my course.
 - 📫 How to reach me by email ( zhenhau8072@gmail.com )
 
 <!---
