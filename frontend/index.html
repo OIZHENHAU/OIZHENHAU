@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Influencer Clout Detective</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="brand">
+    <span class="brand-icon">🔍</span>
+    <div>
+      <div class="brand-title">Clout Detective</div>
+      <div class="brand-sub">Influencer Forensics</div>
+    </div>
+  </div>
+  <nav>
+    <a class="nav-item active" data-tab="overview">
+      <span class="nav-icon">📊</span> Overview
+    </a>
+    <a class="nav-item" data-tab="eda">
+      <span class="nav-icon">📈</span> EDA
+    </a>
+    <a class="nav-item" data-tab="pca">
+      <span class="nav-icon">🔬</span> PCA
+    </a>
+    <a class="nav-item" data-tab="outliers">
+      <span class="nav-icon">⚠️</span> Outlier Detection
+    </a>
+    <a class="nav-item" data-tab="analyzer">
+      <span class="nav-icon">🕵️</span> Account Analyzer
+    </a>
+    <a class="nav-item" data-tab="report">
+      <span class="nav-icon">📝</span> AI Report
+    </a>
+  </nav>
+  <div class="sidebar-footer">Powered by Claude AI</div>
+</aside>
+
+<!-- ── Main ───────────────────────────────────────────────────────────────── -->
+<main class="main">
+
+  <!-- Overview -->
+  <section id="tab-overview" class="tab-content active">
+    <div class="page-header">
+      <h1>Dashboard Overview</h1>
+      <p>Forensic analytics across 15,000 Instagram accounts</p>
+    </div>
+
+    <div class="stats-grid" id="overview-stats">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-label">Total Accounts</div>
+      </div>
+      <div class="stat-card real">
+        <div class="stat-value" id="stat-real">—</div>
+        <div class="stat-label">Real Accounts</div>
+      </div>
+      <div class="stat-card bot">
+        <div class="stat-value" id="stat-bot">—</div>
+        <div class="stat-label">Bots</div>
+      </div>
+      <div class="stat-card scam">
+        <div class="stat-value" id="stat-scam">—</div>
+        <div class="stat-label">Scam / Spam</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Account Type Distribution</h3>
+        <canvas id="chart-label-pie"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Avg Followers by Account Type</h3>
+        <canvas id="chart-followers-bar"></canvas>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Profile Feature Presence (%)</h3>
+        <canvas id="chart-binary-radar"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Avg Following by Account Type</h3>
+        <canvas id="chart-following-bar"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- EDA -->
+  <section id="tab-eda" class="tab-content">
+    <div class="page-header">
+      <h1>Exploratory Data Analysis</h1>
+      <p>Statistical distributions and feature correlations</p>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card wide">
+        <h3>Followers Distribution (log scale)</h3>
+        <canvas id="chart-followers-dist"></canvas>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card wide">
+        <h3>Following/Followers Ratio — Mean per Account Type</h3>
+        <canvas id="chart-ratio-bar"></canvas>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card wide">
+        <h3>Feature Correlation Matrix</h3>
+        <canvas id="chart-correlation" width="600" height="400"></canvas>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card wide">
+        <h3>Posts per Account Type</h3>
+        <canvas id="chart-posts-bar"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- PCA -->
+  <section id="tab-pca" class="tab-content">
+    <div class="page-header">
+      <h1>Principal Component Analysis</h1>
+      <p>2D projection of all account features — coloured by account type</p>
+    </div>
+
+    <div class="pca-info" id="pca-variance-info">Loading PCA…</div>
+
+    <div class="charts-row">
+      <div class="chart-card wide tall">
+        <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
+        <canvas id="chart-pca-scatter"></canvas>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card wide">
+        <h3>PC1 Feature Loadings</h3>
+        <canvas id="chart-pca-loadings"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Outlier Detection -->
+  <section id="tab-outliers" class="tab-content">
+    <div class="page-header">
+      <h1>Outlier Detection</h1>
+      <p>Isolation Forest &amp; Local Outlier Factor — unsupervised fraud detection</p>
+    </div>
+
+    <div class="stats-grid" id="outlier-stats"></div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Isolation Forest — Outlier Rate by Type</h3>
+        <canvas id="chart-iso-outlier"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>LOF — Outlier Rate by Type</h3>
+        <canvas id="chart-lof-outlier"></canvas>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card wide">
+        <h3>Authenticity Score Distribution by Account Type</h3>
+        <canvas id="chart-score-dist"></canvas>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card wide tall">
+        <h3>IF Score vs LOF Score (sample of 500 accounts)</h3>
+        <canvas id="chart-iso-lof-scatter"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Account Analyzer -->
+  <section id="tab-analyzer" class="tab-content">
+    <div class="page-header">
+      <h1>Account Analyzer</h1>
+      <p>Enter account metrics to get an Authenticity Confidence Score</p>
+    </div>
+
+    <div class="analyzer-layout">
+      <div class="analyzer-form card">
+        <h3>Account Metrics</h3>
+        <div class="form-grid">
+          <label>Followers
+            <input type="number" id="a-followers" value="1500" min="0" />
+          </label>
+          <label>Following
+            <input type="number" id="a-following" value="800" min="0" />
+          </label>
+          <label>Posts
+            <input type="number" id="a-posts" value="45" min="0" />
+          </label>
+          <label>Mutual Friends
+            <input type="number" id="a-mutual" value="3" min="0" />
+          </label>
+        </div>
+        <div class="form-checks">
+          <label class="check-label">
+            <input type="checkbox" id="a-bio" checked /> Has Bio
+          </label>
+          <label class="check-label">
+            <input type="checkbox" id="a-pic" checked /> Has Profile Picture
+          </label>
+          <label class="check-label">
+            <input type="checkbox" id="a-link" /> Has External Link
+          </label>
+          <label class="check-label">
+            <input type="checkbox" id="a-threads" /> Has Threads
+          </label>
+        </div>
+        <button class="btn-analyze" id="btn-analyze">Analyze Account</button>
+      </div>
+
+      <div class="analyzer-result card" id="analyzer-result" style="display:none;">
+        <h3>Forensic Result</h3>
+        <div class="score-gauge">
+          <canvas id="chart-gauge" width="220" height="220"></canvas>
+          <div class="score-center">
+            <div class="score-number" id="score-number">—</div>
+            <div class="score-label-text" id="score-label">—</div>
+          </div>
+        </div>
+        <div class="flags-section" id="flags-section"></div>
+        <div class="derived-metrics" id="derived-metrics"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI Report -->
+  <section id="tab-report" class="tab-content">
+    <div class="page-header">
+      <h1>AI Forensic Report</h1>
+      <p>Generated by Claude AI agent using live dataset analysis</p>
+    </div>
+
+    <div class="report-controls">
+      <button class="btn-report" id="btn-report">
+        <span id="btn-report-text">Generate Report</span>
+      </button>
+      <span class="report-note">This runs the AI agent and may take ~30 seconds</span>
+    </div>
+
+    <div id="report-output" class="report-output" style="display:none;"></div>
+  </section>
+
+</main>
+
+<div id="loader" class="loader-overlay" style="display:none;">
+  <div class="loader-box">
+    <div class="spinner"></div>
+    <div class="loader-text" id="loader-text">Loading…</div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
