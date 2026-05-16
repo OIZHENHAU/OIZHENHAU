@@ -3,273 +3,345 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Influencer Clout Detective</title>
+  <title>Clout Detective</title>
   <link rel="stylesheet" href="css/style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
-<!-- ── Sidebar ─────────────────────────────────────────────────────────────── -->
+<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
 <aside class="sidebar">
   <div class="brand">
-    <span class="brand-icon">🔍</span>
-    <div>
-      <div class="brand-title">Clout Detective</div>
-      <div class="brand-sub">Influencer Forensics</div>
+    <div class="brand-icon">CD</div>
+    <div class="brand-text">
+      <span class="brand-title">Clout</span>
+      <span class="brand-sub">Detective</span>
     </div>
   </div>
-  <nav>
-    <a class="nav-item active" data-tab="overview">
-      <span class="nav-icon">📊</span> Overview
+
+  <nav class="nav">
+    <a class="nav-item active" data-page="dashboard" href="#">
+      <span class="nav-dot"></span>
+      Dataset dashboard
     </a>
-    <a class="nav-item" data-tab="eda">
-      <span class="nav-icon">📈</span> EDA
+    <a class="nav-item" data-page="single" href="#">
+      <span class="nav-dot"></span>
+      Single account lookup
     </a>
-    <a class="nav-item" data-tab="pca">
-      <span class="nav-icon">🔬</span> PCA
-    </a>
-    <a class="nav-item" data-tab="outliers">
-      <span class="nav-icon">⚠️</span> Outlier Detection
-    </a>
-    <a class="nav-item" data-tab="analyzer">
-      <span class="nav-icon">🕵️</span> Account Analyzer
-    </a>
-    <a class="nav-item" data-tab="report">
-      <span class="nav-icon">📝</span> AI Report
+    <a class="nav-item" data-page="upload" href="#">
+      <span class="nav-dot"></span>
+      Upload CSV
     </a>
   </nav>
-  <div class="sidebar-footer">Powered by Claude AI</div>
+
+  <div class="sidebar-footer">
+    WIF3009 &middot; Title 15<br />Unsupervised anomaly detection
+  </div>
 </aside>
 
-<!-- ── Main ───────────────────────────────────────────────────────────────── -->
+<!-- ═══════════════════════ MAIN ═══════════════════════ -->
 <main class="main">
 
-  <!-- Overview -->
-  <section id="tab-overview" class="tab-content active">
+  <!-- ─────────────── PAGE: DATASET DASHBOARD ─────────────── -->
+  <section id="page-dashboard" class="page active">
     <div class="page-header">
-      <h1>Dashboard Overview</h1>
-      <p>Forensic analytics across 15,000 Instagram accounts</p>
+      <div>
+        <h1 class="page-title">Influencer Clout Detective — dataset dashboard</h1>
+      </div>
+      <span id="badge-loaded" class="badge-loaded">Loading…</span>
     </div>
 
-    <div class="stats-grid" id="overview-stats">
-      <div class="stat-card">
-        <div class="stat-value" id="stat-total">—</div>
-        <div class="stat-label">Total Accounts</div>
-      </div>
-      <div class="stat-card real">
-        <div class="stat-value" id="stat-real">—</div>
-        <div class="stat-label">Real Accounts</div>
-      </div>
-      <div class="stat-card bot">
-        <div class="stat-value" id="stat-bot">—</div>
-        <div class="stat-label">Bots</div>
-      </div>
-      <div class="stat-card scam">
-        <div class="stat-value" id="stat-scam">—</div>
-        <div class="stat-label">Scam / Spam</div>
-      </div>
+    <!-- OVERVIEW STATS -->
+    <div class="section-label">Section 1 — Overview</div>
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-name">Total accounts</div></div>
+      <div class="stat-card green"><div class="stat-num" id="stat-real">—</div><div class="stat-name">Real accounts</div></div>
+      <div class="stat-card orange"><div class="stat-num" id="stat-susp">—</div><div class="stat-name">Suspicious</div></div>
+      <div class="stat-card teal"><div class="stat-num" id="stat-avg">—</div><div class="stat-name">Avg auth score</div></div>
+      <div class="stat-card red"><div class="stat-num" id="stat-risk">—</div><div class="stat-name">High-risk (&lt;40)</div></div>
     </div>
 
-    <div class="charts-row">
-      <div class="chart-card">
-        <h3>Account Type Distribution</h3>
-        <canvas id="chart-label-pie"></canvas>
-      </div>
-      <div class="chart-card">
-        <h3>Avg Followers by Account Type</h3>
-        <canvas id="chart-followers-bar"></canvas>
-      </div>
+    <!-- CHART TABS -->
+    <div class="chart-tabs">
+      <button class="tab-btn active" data-tab="scatter">Engagement vs Followers</button>
+      <button class="tab-btn" data-tab="pca">PCA Scatter</button>
+      <button class="tab-btn" data-tab="authdist">Auth Score Dist</button>
+      <button class="tab-btn" data-tab="eda">EDA Plots</button>
     </div>
-
-    <div class="charts-row">
-      <div class="chart-card">
-        <h3>Profile Feature Presence (%)</h3>
-        <canvas id="chart-binary-radar"></canvas>
-      </div>
-      <div class="chart-card">
-        <h3>Avg Following by Account Type</h3>
-        <canvas id="chart-following-bar"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <!-- EDA -->
-  <section id="tab-eda" class="tab-content">
-    <div class="page-header">
-      <h1>Exploratory Data Analysis</h1>
-      <p>Statistical distributions and feature correlations</p>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card wide">
-        <h3>Followers Distribution (log scale)</h3>
-        <canvas id="chart-followers-dist"></canvas>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card wide">
-        <h3>Following/Followers Ratio — Mean per Account Type</h3>
-        <canvas id="chart-ratio-bar"></canvas>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card wide">
-        <h3>Feature Correlation Matrix</h3>
-        <canvas id="chart-correlation" width="600" height="400"></canvas>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card wide">
-        <h3>Posts per Account Type</h3>
-        <canvas id="chart-posts-bar"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <!-- PCA -->
-  <section id="tab-pca" class="tab-content">
-    <div class="page-header">
-      <h1>Principal Component Analysis</h1>
-      <p>2D projection of all account features — coloured by account type</p>
-    </div>
-
-    <div class="pca-info" id="pca-variance-info">Loading PCA…</div>
-
-    <div class="charts-row">
-      <div class="chart-card wide tall">
-        <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
-        <canvas id="chart-pca-scatter"></canvas>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card wide">
-        <h3>PC1 Feature Loadings</h3>
-        <canvas id="chart-pca-loadings"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <!-- Outlier Detection -->
-  <section id="tab-outliers" class="tab-content">
-    <div class="page-header">
-      <h1>Outlier Detection</h1>
-      <p>Isolation Forest &amp; Local Outlier Factor — unsupervised fraud detection</p>
-    </div>
-
-    <div class="stats-grid" id="outlier-stats"></div>
-
-    <div class="charts-row">
-      <div class="chart-card">
-        <h3>Isolation Forest — Outlier Rate by Type</h3>
-        <canvas id="chart-iso-outlier"></canvas>
-      </div>
-      <div class="chart-card">
-        <h3>LOF — Outlier Rate by Type</h3>
-        <canvas id="chart-lof-outlier"></canvas>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card wide">
-        <h3>Authenticity Score Distribution by Account Type</h3>
-        <canvas id="chart-score-dist"></canvas>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card wide tall">
-        <h3>IF Score vs LOF Score (sample of 500 accounts)</h3>
-        <canvas id="chart-iso-lof-scatter"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <!-- Account Analyzer -->
-  <section id="tab-analyzer" class="tab-content">
-    <div class="page-header">
-      <h1>Account Analyzer</h1>
-      <p>Enter account metrics to get an Authenticity Confidence Score</p>
-    </div>
-
-    <div class="analyzer-layout">
-      <div class="analyzer-form card">
-        <h3>Account Metrics</h3>
-        <div class="form-grid">
-          <label>Followers
-            <input type="number" id="a-followers" value="1500" min="0" />
-          </label>
-          <label>Following
-            <input type="number" id="a-following" value="800" min="0" />
-          </label>
-          <label>Posts
-            <input type="number" id="a-posts" value="45" min="0" />
-          </label>
-          <label>Mutual Friends
-            <input type="number" id="a-mutual" value="3" min="0" />
-          </label>
+    <div class="chart-card">
+      <div class="chart-tab-panel active" id="panel-scatter">
+        <div class="chart-title" id="chart-title-scatter">Engagement Rate vs Followers (log scale)</div>
+        <div class="chart-legend">
+          <span class="legend-dot green"></span> Real
+          <span class="legend-dot red"></span> Suspicious
         </div>
-        <div class="form-checks">
-          <label class="check-label">
-            <input type="checkbox" id="a-bio" checked /> Has Bio
-          </label>
-          <label class="check-label">
-            <input type="checkbox" id="a-pic" checked /> Has Profile Picture
-          </label>
-          <label class="check-label">
-            <input type="checkbox" id="a-link" /> Has External Link
-          </label>
-          <label class="check-label">
-            <input type="checkbox" id="a-threads" /> Has Threads
-          </label>
-        </div>
-        <button class="btn-analyze" id="btn-analyze">Analyze Account</button>
+        <div class="chart-wrap"><canvas id="chart-scatter"></canvas></div>
       </div>
-
-      <div class="analyzer-result card" id="analyzer-result" style="display:none;">
-        <h3>Forensic Result</h3>
-        <div class="score-gauge">
-          <canvas id="chart-gauge" width="220" height="220"></canvas>
-          <div class="score-center">
-            <div class="score-number" id="score-number">—</div>
-            <div class="score-label-text" id="score-label">—</div>
+      <div class="chart-tab-panel" id="panel-pca">
+        <div class="chart-title">PCA — PC1 vs PC2</div>
+        <div class="chart-legend">
+          <span class="legend-dot green"></span> Real
+          <span class="legend-dot red"></span> Suspicious
+        </div>
+        <div class="chart-wrap"><canvas id="chart-pca"></canvas></div>
+      </div>
+      <div class="chart-tab-panel" id="panel-authdist">
+        <div class="chart-title">Authenticity Score Distribution</div>
+        <div class="chart-legend">
+          <span class="legend-dot green"></span> Real
+          <span class="legend-dot red"></span> Suspicious
+        </div>
+        <div class="chart-wrap"><canvas id="chart-authdist"></canvas></div>
+      </div>
+      <div class="chart-tab-panel" id="panel-eda">
+        <div class="eda-grid">
+          <div>
+            <div class="chart-title">Engagement Rate by Platform</div>
+            <div class="chart-wrap chart-wrap-sm"><canvas id="chart-eda-er"></canvas></div>
+          </div>
+          <div>
+            <div class="chart-title">Post Volume by Platform</div>
+            <div class="chart-wrap chart-wrap-sm"><canvas id="chart-eda-platform"></canvas></div>
+          </div>
+          <div>
+            <div class="chart-title">Toxicity Distribution</div>
+            <div class="chart-wrap chart-wrap-sm"><canvas id="chart-eda-tox"></canvas></div>
+          </div>
+          <div>
+            <div class="chart-title">Posts by Day of Week</div>
+            <div class="chart-wrap chart-wrap-sm"><canvas id="chart-eda-dow"></canvas></div>
           </div>
         </div>
-        <div class="flags-section" id="flags-section"></div>
-        <div class="derived-metrics" id="derived-metrics"></div>
+      </div>
+    </div>
+
+    <!-- ACCOUNT TABLE -->
+    <div class="section-label">Section 2 — account overview</div>
+    <div class="table-card">
+      <div class="search-wrap">
+        <span class="search-icon">&#128269;</span>
+        <input id="search-input" class="search-input" type="text" placeholder="Search by username…" />
+      </div>
+      <div class="table-wrap">
+        <table class="accounts-table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Platform</th>
+              <th>Followers</th>
+              <th>Auth score</th>
+              <th>Label</th>
+            </tr>
+          </thead>
+          <tbody id="accounts-body">
+            <tr><td colspan="5" class="table-empty">Loading accounts…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- DETECTION RESULT + WHY FLAGGED -->
+    <div class="bottom-grid" id="bottom-grid" style="display:none">
+      <div class="detect-card">
+        <div class="section-label-sm">Section 4 — detection result</div>
+        <div class="detect-body">
+          <div class="detect-score-wrap">
+            <div class="detect-score" id="det-score">—</div>
+            <div class="detect-score-label">Auth score / 100</div>
+            <div id="det-label-badge" class="verdict-badge"></div>
+          </div>
+          <div class="detect-breakdown">
+            <div class="breakdown-title">MODEL BREAKDOWN</div>
+            <div class="breakdown-row"><span>Isolation Forest</span><span id="det-if">—</span></div>
+            <div class="breakdown-row"><span>LOF</span><span id="det-lof">—</span></div>
+            <div class="breakdown-row"><span>Ensemble</span><span id="det-ens">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="why-card">
+        <div class="section-label-sm">Section 6 — why flagged?</div>
+        <div class="why-grid" id="why-grid"></div>
       </div>
     </div>
   </section>
 
-  <!-- AI Report -->
-  <section id="tab-report" class="tab-content">
+  <!-- ─────────────── PAGE: SINGLE ACCOUNT LOOKUP ─────────────── -->
+  <section id="page-single" class="page">
     <div class="page-header">
-      <h1>AI Forensic Report</h1>
-      <p>Generated by Claude AI agent using live dataset analysis</p>
+      <div>
+        <h1 class="page-title">Single account lookup</h1>
+        <p class="page-sub">Enter metrics manually to score any account</p>
+      </div>
     </div>
 
-    <div class="report-controls">
-      <button class="btn-report" id="btn-report">
-        <span id="btn-report-text">Generate Report</span>
+    <div class="lookup-tabs">
+      <button class="lookup-tab active">Manual input</button>
+    </div>
+
+    <div class="lookup-card">
+      <div class="form-section-label">ACCOUNT METRICS</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Followers</label>
+          <input type="number" id="inp-followers" value="1200" min="0" />
+        </div>
+        <div class="form-field">
+          <label>Following</label>
+          <input type="number" id="inp-following" value="9800" min="0" />
+        </div>
+        <div class="form-field">
+          <label>Posts</label>
+          <input type="number" id="inp-posts" value="8" min="0" />
+        </div>
+        <div class="form-field">
+          <label>Account age (days)</label>
+          <input type="number" id="inp-age" value="45" min="1" />
+        </div>
+        <div class="form-field">
+          <label>Bio length (chars)</label>
+          <input type="number" id="inp-bio" value="12" min="0" max="160" />
+        </div>
+        <div class="form-field">
+          <label>Has profile picture?</label>
+          <select id="inp-pic">
+            <option value="0">No (0)</option>
+            <option value="1">Yes (1)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-section-label" style="margin-top:1.4rem">BEHAVIOUR SIGNALS</div>
+      <div class="slider-group">
+        <div class="slider-row">
+          <label>Username randomness (0–1)</label>
+          <input type="range" id="sl-urand" min="0" max="1" step="0.01" value="0.7" />
+          <span class="slider-val" id="sv-urand">0.7</span>
+        </div>
+        <div class="slider-row">
+          <label>Spam comments rate</label>
+          <input type="range" id="sl-spam" min="0" max="1" step="0.01" value="0.8" />
+          <span class="slider-val" id="sv-spam">0.8</span>
+        </div>
+        <div class="slider-row">
+          <label>Generic comment rate</label>
+          <input type="range" id="sl-generic" min="0" max="1" step="0.01" value="0.65" />
+          <span class="slider-val" id="sv-generic">0.65</span>
+        </div>
+      </div>
+
+      <button class="analyse-btn" id="analyse-btn">
+        <span class="btn-dot"></span> Analyse account
       </button>
-      <span class="report-note">This runs the AI agent and may take ~30 seconds</span>
     </div>
 
-    <div id="report-output" class="report-output" style="display:none;"></div>
+    <!-- RESULTS -->
+    <div id="single-results" class="single-results" style="display:none">
+      <div class="score-cards">
+        <div class="score-card">
+          <div class="score-num" id="res-if">—</div>
+          <div class="score-name">IF auth score</div>
+          <div class="score-verdict" id="res-if-label"></div>
+        </div>
+        <div class="score-card">
+          <div class="score-num" id="res-lof">—</div>
+          <div class="score-name">LOF auth score</div>
+          <div class="score-verdict" id="res-lof-label"></div>
+        </div>
+        <div class="score-card">
+          <div class="score-num" id="res-ens">—</div>
+          <div class="score-name">Ensemble score</div>
+          <div class="score-verdict" id="res-ens-label"></div>
+        </div>
+      </div>
+
+      <div id="single-verdict-banner" class="verdict-banner"></div>
+    </div>
+  </section>
+
+  <!-- ─────────────── PAGE: UPLOAD CSV ─────────────── -->
+  <section id="page-upload" class="page">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Upload CSV — batch analysis</h1>
+        <p class="page-sub">Score multiple accounts at once by uploading a CSV file</p>
+      </div>
+    </div>
+
+    <div class="upload-card">
+      <div class="form-section-label">REQUIRED COLUMNS</div>
+      <div class="code-block">
+        username, followers, following, posts, account_age_days,<br />
+        spam_comments_rate, generic_comment_rate
+      </div>
+    </div>
+
+    <div class="dropzone-card" id="dropzone">
+      <div class="dropzone-icon">&#128228;</div>
+      <div class="dropzone-text">Drag and drop your CSV here</div>
+      <div class="dropzone-sub">or click to browse — max file size 200 MB</div>
+      <button class="browse-btn" id="browse-btn">Browse file</button>
+      <input type="file" id="file-input" accept=".csv" style="display:none" />
+    </div>
+
+    <!-- FILE PREVIEW -->
+    <div id="file-preview" class="upload-card" style="display:none">
+      <div class="preview-header">
+        <span class="form-section-label">FILE LOADED</span>
+        <span id="preview-info" class="preview-info"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="accounts-table" id="preview-table">
+          <thead id="preview-thead"></thead>
+          <tbody id="preview-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <button class="run-btn" id="run-btn" style="display:none">
+      &#128640; Run analysis on <span id="run-count">0</span> accounts
+    </button>
+
+    <!-- PROGRESS -->
+    <div id="progress-wrap" class="upload-card" style="display:none">
+      <div class="progress-header">
+        <span class="form-section-label">ANALYSIS PROGRESS</span>
+        <span id="progress-label" class="preview-info">0 / 0 complete</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <div id="progress-status" class="progress-status"></div>
+    </div>
+
+    <!-- BATCH RESULTS -->
+    <div id="batch-results" class="upload-card" style="display:none">
+      <div class="preview-header">
+        <span class="form-section-label" id="batch-result-title">RESULTS</span>
+        <span class="batch-badges">
+          <span class="badge-real" id="batch-real-badge"></span>
+          <span class="badge-susp" id="batch-susp-badge"></span>
+        </span>
+      </div>
+      <div class="table-wrap">
+        <table class="accounts-table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>IF score</th>
+              <th>LOF score</th>
+              <th>Ensemble</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody id="batch-body"></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
 </main>
-
-<div id="loader" class="loader-overlay" style="display:none;">
-  <div class="loader-box">
-    <div class="spinner"></div>
-    <div class="loader-text" id="loader-text">Loading…</div>
-  </div>
-</div>
 
 <script src="js/api.js"></script>
 <script src="js/charts.js"></script>

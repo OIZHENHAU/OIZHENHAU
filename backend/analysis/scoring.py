@@ -1,124 +1,159 @@
-"""
-Authenticity Confidence Score.
-
-Strategy: Isolation Forest trained with contamination=0.25 on the full dataset
-(expecting ~25% of accounts to be the most anomalous). The IF score is then
-linearly scaled so that accounts resembling the organic cluster score highest.
-
-Because the majority cluster in this dataset consists of bot/scam accounts with
-very consistent (but suspicious) feature patterns, we additionally compute a
-rule-based penalty that reduces the score when explicit fraud signals are present.
-"""
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import IsolationForest
-from .preprocessing import load_and_preprocess, get_feature_matrix, FEATURE_COLS
-
-_cache = {}
 
 
-def _get_models():
-    if _cache:
-        return _cache
-
-    df = load_and_preprocess()
-    X, _ = get_feature_matrix(df)
-
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
-    # contamination=0.25: treats 25% most anomalous as outliers
-    iso = IsolationForest(contamination=0.25, n_estimators=200, random_state=42)
-    iso.fit(X_scaled)
-
-    train_scores = iso.score_samples(X_scaled)
-    _cache['scaler'] = scaler
-    _cache['iso'] = iso
-    _cache['score_min'] = float(train_scores.min())
-    _cache['score_max'] = float(train_scores.max())
-    return _cache
+def compute_df_stats(df) -> dict:
+    """Pre-compute dataset percentiles used for reason generation."""
+    stats = {}
+    for col in ['engagement_rate', 'toxicity_score', 'like_rate',
+                'share_rate', 'comment_rate', 'username_randomness']:
+        q = np.nanpercentile(df[col].values, [10, 25, 75, 90])
+        stats[col] = {'q10': q[0], 'q25': q[1], 'q75': q[2], 'q90': q[3],
+                      'mean': float(df[col].mean())}
+    bz = df['buzz_change_rate'].abs()
+    stats['buzz_abs'] = {'q75': float(np.nanpercentile(bz.values, 75)),
+                         'q90': float(np.nanpercentile(bz.values, 90))}
+    return stats
 
 
-def _rule_based_score(account: dict) -> float:
-    """Returns 0-100; higher = more organic-looking."""
-    score = 100.0
-    followers = account.get('Followers', 0)
-    following = account.get('Following', 0)
-    posts = account.get('Posts', 0)
-    ratio = account.get('Following/Followers', 0)
+def post_reasons(row: dict, stats: dict) -> list:
+    """
+    Return up to 2 reasons why a post/account was flagged.
+    row must contain engagement_rate, toxicity_score, like_rate, buzz_change_rate, username_randomness.
+    """
+    signals = []
 
-    # High following/followers ratio is the strongest bot signal
-    if ratio > 200:
-        score -= 55
-    elif ratio > 50:
-        score -= 35
-    elif ratio > 10:
-        score -= 15
+    er = row.get('engagement_rate', None)
+    if er is not None:
+        if er < stats['engagement_rate']['q10']:
+            signals.append((
+                abs(er - stats['engagement_rate']['mean']),
+                {'title': 'Low engagement rate',
+                 'description': f'{er:.4f} — far below average',
+                 'icon': 'chart-line'}
+            ))
+        elif er > stats['engagement_rate']['q90']:
+            signals.append((
+                er - stats['engagement_rate']['q90'],
+                {'title': 'Suspiciously high engagement',
+                 'description': f'{er:.4f} — abnormally inflated',
+                 'icon': 'chart-line'}
+            ))
 
-    # Zero followers + high following
-    if followers == 0 and following > 50:
-        score -= 25
+    tox = row.get('toxicity_score', None)
+    if tox is not None and tox > stats['toxicity_score']['q75']:
+        signals.append((
+            tox - stats['toxicity_score']['q75'],
+            {'title': 'High toxicity score',
+             'description': f'{tox:.3f} — bot-like comment pattern',
+             'icon': 'alert'}
+        ))
 
-    # No posts at all
-    if posts == 0:
-        score -= 15
+    lr = row.get('like_rate', None)
+    if lr is not None and lr > stats['like_rate']['q90']:
+        signals.append((
+            lr - stats['like_rate']['q90'],
+            {'title': 'Abnormal like ratio',
+             'description': f'{lr:.4f} — inflated like pattern',
+             'icon': 'bar-chart'}
+        ))
 
-    # Missing profile basics
-    if not account.get('Profile Picture', 0):
-        score -= 10
-    if not account.get('Bio', 0):
-        score -= 8
+    bz = row.get('buzz_change_rate', None)
+    if bz is not None and abs(bz) > stats['buzz_abs']['q90']:
+        signals.append((
+            abs(bz) - stats['buzz_abs']['q90'],
+            {'title': 'Abnormal buzz change',
+             'description': f'{bz:.1f} — unusual spike pattern',
+             'icon': 'trending'}
+        ))
 
-    # No mutual friends is weak signal but still suspicious
-    if account.get('Mutual Friends', 0) == 0 and followers < 100:
-        score -= 5
+    ur = row.get('username_randomness', None)
+    if ur is not None and ur > 0.82:
+        signals.append((
+            ur - 0.82,
+            {'title': 'High username randomness',
+             'description': f'{ur:.2f} — auto-generated pattern',
+             'icon': 'user'}
+        ))
 
-    return max(0.0, min(100.0, score))
+    if not signals:
+        signals.append((1.0, {
+            'title': 'Multivariate anomaly',
+            'description': 'Subtle combination of signals detected',
+            'icon': 'radar'}
+        ))
+
+    signals.sort(key=lambda x: x[0], reverse=True)
+    return [s[1] for s in signals[:2]]
 
 
-def compute_authenticity_score(account: dict) -> dict:
-    models = _get_models()
-    scaler = models['scaler']
-    iso = models['iso']
-    s_min = models['score_min']
-    s_max = models['score_max']
+def account_reasons(inputs: dict) -> list:
+    """Generate reasons for the single-account-lookup result."""
+    signals = []
 
-    X = np.array([[account.get(col, 0) for col in FEATURE_COLS]])
-    X_scaled = scaler.transform(X)
+    followers = inputs.get('followers', 0)
+    following = inputs.get('following', 1)
+    ff = followers / max(following, 1)
+    if ff < 0.1:
+        signals.append((0.1 - ff, {
+            'title': 'Abnormal FF ratio',
+            'description': f'{ff:.3f} — following far exceeds followers',
+            'icon': 'bar-chart'}
+        ))
 
-    raw = float(iso.score_samples(X_scaled)[0])
-    # Normalize: higher raw → more normal in the dataset
-    iso_score = (raw - s_min) / (s_max - s_min + 1e-9) * 100
+    spam = inputs.get('spam_comments_rate', 0)
+    if spam > 0.6:
+        signals.append((spam - 0.6, {
+            'title': 'High spam comment rate',
+            'description': f'{spam:.2f} — bot-like posting pattern',
+            'icon': 'alert'}
+        ))
 
-    # Rule-based score captures explicit fraud signals
-    rule_score = _rule_based_score(account)
+    generic = inputs.get('generic_comment_rate', 0)
+    if generic > 0.6:
+        signals.append((generic - 0.6, {
+            'title': 'Generic comment pattern',
+            'description': f'{generic:.2f} — homogeneous engagement',
+            'icon': 'chart-line'}
+        ))
 
-    # Blend: rule-based dominates for clear fraud signals
-    final = 0.35 * iso_score + 0.65 * rule_score
-    final = round(max(0.0, min(100.0, final)), 1)
+    urand = inputs.get('username_randomness', 0)
+    if urand > 0.7:
+        signals.append((urand - 0.7, {
+            'title': 'High username randomness',
+            'description': f'{urand:.2f} — auto-generated pattern',
+            'icon': 'user'}
+        ))
 
-    if final >= 65:
-        level, color = 'Authentic', '#22c55e'
-    elif final >= 35:
-        level, color = 'Suspicious', '#f59e0b'
-    else:
-        level, color = 'Fraudulent', '#ef4444'
+    bio = inputs.get('bio_length', 50)
+    if bio < 15:
+        signals.append((15 - bio, {
+            'title': 'Minimal bio',
+            'description': f'{bio} chars — incomplete profile',
+            'icon': 'user'}
+        ))
 
-    flags = []
-    if account.get('Following/Followers', 0) > 50:
-        flags.append('Extremely high Following/Followers ratio')
-    if account.get('Followers', 0) == 0 and account.get('Following', 0) > 50:
-        flags.append('Zero followers with high following count')
-    if account.get('Posts', 0) == 0:
-        flags.append('No posts published')
-    if not account.get('Profile Picture', 0):
-        flags.append('No profile picture')
-    if not account.get('Bio', 0):
-        flags.append('No bio')
+    has_pic = inputs.get('has_profile_picture', 1)
+    if has_pic == 0:
+        signals.append((1.0, {
+            'title': 'No profile picture',
+            'description': 'Missing profile image — common bot signal',
+            'icon': 'user'}
+        ))
 
-    return {
-        'authenticity_score': final,
-        'level': level,
-        'color': color,
-        'flags': flags,
-    }
+    age = inputs.get('account_age_days', 100)
+    if age < 30:
+        signals.append((30 - age, {
+            'title': 'Very new account',
+            'description': f'{age} days old — recently created',
+            'icon': 'trending'}
+        ))
+
+    if not signals:
+        signals.append((1.0, {
+            'title': 'Multivariate anomaly',
+            'description': 'Subtle combination of signals detected',
+            'icon': 'radar'}
+        ))
+
+    signals.sort(key=lambda x: x[0], reverse=True)
+    return [s[1] for s in signals[:2]]

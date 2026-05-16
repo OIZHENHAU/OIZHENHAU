@@ -1,81 +1,137 @@
 import numpy as np
-from collections import defaultdict
-from sklearn.preprocessing import StandardScaler
+from scipy.stats import rankdata
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
-from .preprocessing import load_and_preprocess, get_feature_matrix
-
-SAMPLE_SIZE = 3000
-CONTAMINATION = 0.5   # ~50% of data is non-real (Bot+Scam+Spam)
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 
-def run_outlier_detection():
-    df = load_and_preprocess()
-    sampled = df.sample(n=min(SAMPLE_SIZE, len(df)), random_state=42)
+def _rank_norm(scores: np.ndarray) -> np.ndarray:
+    """Rank-based normalization → uniform [0, 100]. Score = authenticity percentile.
+    Bottom 20 % gets 0–20, top 20 % gets 80–100, median = 50."""
+    n = len(scores)
+    if n <= 1:
+        return np.full_like(scores, 50.0, dtype=float)
+    ranks = rankdata(scores, method='average')  # 1 … N
+    return (ranks - 1) / (n - 1) * 100.0
 
-    X, _ = get_feature_matrix(sampled)
-    labels = sampled['Labels'].tolist()
 
+def _norm(scores: np.ndarray) -> np.ndarray:
+    """Min-max normalization (used for calibration only)."""
+    lo, hi = scores.min(), scores.max()
+    if hi == lo:
+        return np.full_like(scores, 50.0)
+    return (scores - lo) / (hi - lo) * 100.0
+
+
+# ─── Post model (dataset dashboard) ────────────────────────────────────────────
+
+def train_post_models(X: np.ndarray):
+    """Train IsolationForest + LOF on the post feature matrix."""
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    Xs = scaler.fit_transform(X)
 
-    # --- Isolation Forest ---
-    iso = IsolationForest(contamination=CONTAMINATION, n_estimators=100, random_state=42)
-    iso_pred = iso.fit_predict(X_scaled)          # 1=normal, -1=outlier
-    iso_scores = iso.score_samples(X_scaled)       # higher = more normal
+    if_model = IsolationForest(
+        n_estimators=200, contamination=0.20, random_state=42, n_jobs=-1
+    )
+    if_model.fit(Xs)
 
-    # --- LOF ---
-    lof = LocalOutlierFactor(n_neighbors=20, contamination=CONTAMINATION)
-    lof_pred = lof.fit_predict(X_scaled)           # 1=normal, -1=outlier
-    lof_scores = lof.negative_outlier_factor_      # more negative = more outlier
+    lof_model = LocalOutlierFactor(
+        n_neighbors=20, contamination=0.20, novelty=True
+    )
+    lof_model.fit(Xs)
 
-    # Normalize both to [0, 1] (authenticity: 1 = very authentic)
-    def norm(arr):
-        mn, mx = arr.min(), arr.max()
-        return (arr - mn) / (mx - mn + 1e-9)
+    return if_model, lof_model, scaler
 
-    iso_norm = norm(iso_scores)
-    lof_norm = norm(lof_scores)
-    combined = 0.5 * iso_norm + 0.5 * lof_norm
 
-    iso_outlier = (iso_pred == -1).astype(int)
-    lof_outlier = (lof_pred == -1).astype(int)
+def get_post_scores(X: np.ndarray, if_model, lof_model, scaler) -> tuple:
+    """Return (if_auth, lof_auth, ensemble) arrays in [0, 100].
+    Uses rank-based normalization so scores are uniformly distributed and
+    the contamination percentile is a stable suspicious/real boundary.
+    """
+    Xs = scaler.transform(X)
+    if_raw  = if_model.score_samples(Xs)
+    lof_raw = lof_model.decision_function(Xs)
+    if_auth  = _rank_norm(if_raw)
+    lof_auth = _rank_norm(lof_raw)
+    ensemble = _rank_norm(0.6 * _norm(if_raw) + 0.4 * _norm(lof_raw))
+    return if_auth, lof_auth, ensemble
 
-    # Outlier count per label
-    iso_by_label = defaultdict(lambda: {'total': 0, 'outliers': 0})
-    lof_by_label = defaultdict(lambda: {'total': 0, 'outliers': 0})
-    score_by_label = defaultdict(list)
 
-    for i, label in enumerate(labels):
-        iso_by_label[label]['total'] += 1
-        lof_by_label[label]['total'] += 1
-        if iso_outlier[i]:
-            iso_by_label[label]['outliers'] += 1
-        if lof_outlier[i]:
-            lof_by_label[label]['outliers'] += 1
-        score_by_label[label].append(float(combined[i]))
+def run_pca(X: np.ndarray, scaler) -> tuple:
+    """PCA on scaled features — return components, explained variance, loadings."""
+    Xs = scaler.transform(X)
+    n_comp = min(10, X.shape[1])
+    pca = PCA(n_components=n_comp)
+    components = pca.fit_transform(Xs)
+    return components, pca.explained_variance_ratio_, pca.components_, pca
 
-    score_stats = {}
-    for label, scores in score_by_label.items():
-        arr = np.array(scores)
-        score_stats[label] = {
-            'mean': round(float(arr.mean()), 4),
-            'std': round(float(arr.std()), 4),
-            'median': round(float(np.median(arr)), 4),
-        }
 
-    # Sample for scatter visualization (first 500)
-    n = min(500, len(labels))
+# ─── Account model (single lookup + batch CSV) ─────────────────────────────────
+
+def train_account_model(X: np.ndarray) -> dict:
+    """Train account-level IF + LOF; store calibration ranges."""
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+
+    if_model = IsolationForest(
+        n_estimators=200, contamination=0.30, random_state=42, n_jobs=-1
+    )
+    if_model.fit(Xs)
+
+    lof_model = LocalOutlierFactor(
+        n_neighbors=15, contamination=0.30, novelty=True
+    )
+    lof_model.fit(Xs)
+
+    # Calibrate on training distribution so new points score reasonably
+    if_tr  = if_model.decision_function(Xs)
+    lof_tr = lof_model.decision_function(Xs)
+
     return {
-        'iso_outlier_by_label': {k: dict(v) for k, v in iso_by_label.items()},
-        'lof_outlier_by_label': {k: dict(v) for k, v in lof_by_label.items()},
-        'score_stats_by_label': score_stats,
-        'sample': {
-            'labels': labels[:n],
-            'iso_scores': iso_norm[:n].tolist(),
-            'lof_scores': lof_norm[:n].tolist(),
-            'combined_scores': combined[:n].tolist(),
-            'iso_outlier': iso_outlier[:n].tolist(),
-            'lof_outlier': lof_outlier[:n].tolist(),
-        },
+        'scaler':  scaler,
+        'if':      if_model,
+        'lof':     lof_model,
+        'if_cal':  (float(np.percentile(if_tr,  5)), float(np.percentile(if_tr,  95))),
+        'lof_cal': (float(np.percentile(lof_tr, 5)), float(np.percentile(lof_tr, 95))),
     }
+
+
+def score_single_account(features: list, model: dict) -> tuple:
+    """Score one account vector. Returns (if_score, lof_score, ensemble) in [0,100]."""
+    X = np.array(features, dtype=float).reshape(1, -1)
+    Xs = model['scaler'].transform(X)
+
+    if_raw  = float(model['if'].decision_function(Xs)[0])
+    lof_raw = float(model['lof'].decision_function(Xs)[0])
+
+    def cal(v, lo, hi):
+        if hi == lo:
+            return 50
+        return int(round(max(0.0, min(100.0, (v - lo) / (hi - lo) * 100.0))))
+
+    if_score  = cal(if_raw,  *model['if_cal'])
+    lof_score = cal(lof_raw, *model['lof_cal'])
+    ensemble  = round(0.6 * if_score + 0.4 * lof_score)
+    return if_score, lof_score, ensemble
+
+
+def score_batch(X_batch: np.ndarray, model: dict) -> tuple:
+    """Score a batch of account vectors. Returns (if_arr, lof_arr, ensemble_arr)."""
+    Xs = model['scaler'].transform(X_batch)
+
+    if_raw  = model['if'].decision_function(Xs)
+    lof_raw = model['lof'].decision_function(Xs)
+
+    lo_if,  hi_if  = model['if_cal']
+    lo_lof, hi_lof = model['lof_cal']
+
+    def cal_arr(arr, lo, hi):
+        if hi == lo:
+            return np.full(len(arr), 50.0)
+        return np.clip((arr - lo) / (hi - lo) * 100.0, 0, 100)
+
+    if_scores  = cal_arr(if_raw,  lo_if,  hi_if)
+    lof_scores = cal_arr(lof_raw, lo_lof, hi_lof)
+    ensemble   = 0.6 * if_scores + 0.4 * lof_scores
+    return if_scores, lof_scores, ensemble
