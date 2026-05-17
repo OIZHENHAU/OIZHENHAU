@@ -82,9 +82,11 @@ def _init():
     }
 
     # ── Chart data ────────────────────────────────────────────────────────────
-    _C['scatter']   = compute_scatter_data(df, labels)
-    _C['pca']       = compute_pca_data(components, labels, explained)
-    _C['auth_dist'] = compute_auth_dist(ens_sc, labels)
+    # Pass raw ensemble scores; pca_analysis derives labels internally (bottom 20th
+    # percentile) so no ER>1 proxy can leak in via the caller.
+    _C['scatter']   = compute_scatter_data(df, ens_sc)
+    _C['pca']       = compute_pca_data(components, ens_sc, explained)
+    _C['auth_dist'] = compute_auth_dist(ens_sc)
     _C['eda']       = compute_eda(df)
 
     # ── Account list (cached first 200 for the table; search served from full df) ─

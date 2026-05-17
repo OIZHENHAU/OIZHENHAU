@@ -7,10 +7,11 @@ DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/Social Media Eng
 
 # Features used for the post-level anomaly model (dataset dashboard)
 POST_FEATURE_COLS = [
-    'log_impressions', 'engagement_rate', 'toxicity_score',
+    'log_impressions', 'toxicity_score',
     'like_rate', 'share_rate', 'comment_rate',
     'sentiment_score', 'user_past_sentiment_avg',
     'user_engagement_growth', 'buzz_change_rate',
+    'username_randomness',
 ]
 
 # Features used for the account-level model (single lookup + batch CSV)
