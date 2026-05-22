@@ -28,11 +28,11 @@ from sklearn.metrics import (
 )
 
 sys.path.insert(0, '.')
-from analysis.preprocessing import load_data, get_post_features
+from analysis.preprocessing import load_dataset, get_post_features
 
 # ── 1. Load & prepare data ────────────────────────────────────────────────────
 print("Loading dataset...")
-df = load_data()
+df = load_dataset()
 X, feature_names = get_post_features(df)
 
 scaler = StandardScaler()

@@ -2,6 +2,8 @@ import io
 import os
 import sys
 import math
+import threading
+import webbrowser
 
 import numpy as np
 import pandas as pd
@@ -12,7 +14,7 @@ from flask_cors import CORS
 sys.path.insert(0, os.path.dirname(__file__))
 
 from analysis.preprocessing import (
-    load_data, get_post_features,
+    load_dataset, get_post_features,
     account_inputs_to_features, batch_csv_to_features,
     generate_account_training_data, char_entropy,
 )
@@ -24,8 +26,13 @@ from analysis.scoring import compute_df_stats, post_reasons, account_reasons
 from analysis.eda import compute_eda
 from analysis.pca_analysis import compute_scatter_data, compute_pca_data, compute_auth_dist
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app)
+
+
+@app.get('/')
+def index():
+    return app.send_static_file('index.html')
 
 # ── Global in-memory cache populated at startup ───────────────────────────────
 _C: dict = {}
@@ -33,7 +40,7 @@ _C: dict = {}
 
 def _init():
     print("[init] Loading dataset …")
-    df = load_data()
+    df = load_dataset()
 
     print("[init] Training post model (IF + LOF) …")
     X, feat_names = get_post_features(df)
@@ -296,4 +303,7 @@ def api_batch():
 
 if __name__ == '__main__':
     _init()
+    url = 'http://localhost:5000'
+    print(f'\n  App running at: {url}\n')
+    threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     app.run(debug=False, port=5000, host='0.0.0.0')

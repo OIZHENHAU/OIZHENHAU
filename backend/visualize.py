@@ -38,7 +38,7 @@ from sklearn.metrics import (
 )
 
 sys.path.insert(0, '.')
-from analysis.preprocessing import load_data, get_post_features, POST_FEATURE_COLS
+from analysis.preprocessing import load_dataset, get_post_features, POST_FEATURE_COLS
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 OUT_DIR = os.path.join(os.path.dirname(__file__), 'output')
@@ -49,7 +49,7 @@ sns.set_theme(style='whitegrid', palette='muted', font_scale=1.05)
 
 # ── Data & models ──────────────────────────────────────────────────────────────
 print("Loading data …")
-df = load_data()
+df = load_dataset()
 X, feature_names = get_post_features(df)
 
 scaler    = StandardScaler()
