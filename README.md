@@ -1,10 +1,8 @@
-- 👋 Hi, I’m @OIZHENHAU
-- 👀 I’m interested in learning maths.
-- 🌱 I’m currently learning computer science course
--  I’m looking to collaborate on my course.
-- 📫 How to reach me by email ( zhenhau8072@gmail.com )
+# Introduction 
+Hi! I'm **Oi Zhen Hau**, a student in the Software Maintenance and Evolution course.  
+I expect to learn a lot about modern software maintenance practices and how to work with legacy systems. 
 
-<!---
-OIZHENHAU/OIZHENHAU is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-You can click the Preview link to take a look at your changes.
---->
+- **Fun fact**: I enjoy building a creative art and design in my free time.
+- **Course expectations**: To gain hands-on experience in maintaining and evolving software.
+
+![My Image](oizhenhau.jpg)
